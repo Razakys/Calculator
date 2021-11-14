@@ -58,10 +58,12 @@ constexpr char print = ';';
 constexpr char number = '8';
 constexpr char name = 'a';
 constexpr char let = 'L';
+constexpr char constanta = 'c';
 
 const string prompt = "> ";
 const string result = "= ";
 const string declkey = "let";
+const string const_decley = "const";
 
 
 Token Token_stream::get ()
@@ -110,6 +112,7 @@ Token Token_stream::get ()
       cin.putback(ch);
 
       if (s == declkey) return Token{ let };
+      if (s == const_decley) return Token{ constanta };
 
       return Token{ name, s };
     }
@@ -137,9 +140,10 @@ struct Variable
 {
   string name;
   double value;
+  bool constanta; // это константа или нет
 
-  Variable (string n, double v)
-    : name{ n }, value{ v }
+  Variable (string n, double v, bool c)
+      : name{ n }, value{ v }, constanta{c}
   { }
 };
 
@@ -156,6 +160,13 @@ double get_value (string s)
 
 void set_value (string s, double d)
 {
+  bool c;
+  for (int i = 0; i < var_table.size(); ++i)
+    if (var_table[i].name == s)
+      c = var_table[i].constanta;
+
+  if (c)
+      error(s + " cannot be changed");
   for (int i = 0; i <= var_table.size(); ++i)
   {
     if (var_table[i].name == s)
@@ -176,12 +187,12 @@ bool is_declared (string s)
   return false;
 }
 
-double define_name (string var, double val)
+double define_name (string var, double val, bool c)
 {
   if (is_declared(var))
     error(var, " declared twice");
 
-  var_table.push_back (Variable{ var, val });
+  var_table.push_back (Variable{ var, val, c });
 
   return val;
 }
@@ -277,6 +288,23 @@ double expression ()
   }
 }
 
+double const_declaration () {
+    Token t = ts.get();
+    if (t.kind != name)
+      error("name expected in declaration");
+
+    string var = t.name;
+
+    if (is_declared(var))
+      error(var, " declared twice");
+
+    t = ts.get();
+    if (t.kind != '=')
+      error("'=' missing in declaration of ", var);
+
+    return define_name (var, expression(), true);
+}
+
 
 double declaration ()
 {
@@ -293,20 +321,20 @@ double declaration ()
   if (t.kind != '=')
     error("'=' missing in declaration of ", var);
 
-  return define_name (var, expression());
+  return define_name (var, expression(), false);
 }
 
 double change_value() {
-    char c;
-    cin >> c;
-    if (c == '='){
+    char ch;
+    cin >> ch;
+    if (ch == '='){
         Token t = ts.get();
         double result = expression();
         set_value (t.name, result);
         return result;
     }
     else {
-        cin.putback(c);
+        cin.putback(ch);
         return expression();
     }
 }
@@ -318,6 +346,8 @@ double statement ()
   {
   case let:
     return declaration();
+  case constanta:
+      return const_declaration();
   case name:
       ts.putback(t);
       return change_value();
@@ -359,8 +389,8 @@ void calculate ()
 int main ()
 try
 {
-  define_name ("pi", 3.141592653589793);
-  define_name ("e",  2.718281828459045);
+  define_name ("pi", 3.141592653589793, true); // true - константа
+  define_name ("e",  2.718281828459045, true);
 
   calculate();
 }

@@ -22,6 +22,9 @@ struct Token
   Token (char ch, double val)
     : kind{ ch }, value{ val }
   { }
+  Token ( char ch , string n) :
+      kind { ch } , name { n }
+  { }
 };
 
 
@@ -74,6 +77,8 @@ Token Token_stream::get ()
 
   switch (ch)
   {
+  case quit:
+  case print:
   case '(':
   case ')':
   case '+':
@@ -81,7 +86,6 @@ Token Token_stream::get ()
   case '*':
   case '/':
   case '%':
-  case ';':
   case '=':
     return Token{ ch };
 
@@ -102,7 +106,7 @@ Token Token_stream::get ()
       s += ch;
       while (cin.get(ch) &&
              (isalpha(ch) || isdigit(ch)))
-        s = ch;
+        s += ch;
       cin.putback(ch);
 
       if (s == declkey) return Token{ let };
@@ -198,6 +202,7 @@ double primary ()
     t = ts.get();
     if (t.kind != ')')
       error("'(' expected");
+    return d;
   }
 
   case '-':
@@ -280,6 +285,7 @@ double declaration ()
     error("name expected in declaration");
 
   string var = t.name;
+
   if (is_declared(var))
     error(var, " declared twice");
 

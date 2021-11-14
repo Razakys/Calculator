@@ -105,7 +105,7 @@ Token Token_stream::get ()
       string s;
       s += ch;
       while (cin.get(ch) &&
-             (isalpha(ch) || isdigit(ch)))
+             (isalpha(ch) || isdigit(ch) || ch == '_'))
         s += ch;
       cin.putback(ch);
 
@@ -296,6 +296,20 @@ double declaration ()
   return define_name (var, expression());
 }
 
+double change_value() {
+    char c;
+    cin >> c;
+    if (c == '='){
+        Token t = ts.get();
+        double result = expression();
+        set_value (t.name, result);
+        return result;
+    }
+    else {
+        cin.putback(c);
+        return expression();
+    }
+}
 
 double statement ()
 {
@@ -304,6 +318,9 @@ double statement ()
   {
   case let:
     return declaration();
+  case name:
+      ts.putback(t);
+      return change_value();
   default:
     ts.putback(t);
     return expression();

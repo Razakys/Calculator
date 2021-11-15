@@ -55,6 +55,7 @@ void Token_stream::putback (Token t)
 
 constexpr char quit = 'q';
 constexpr char print = ';';
+constexpr char help = 'h';
 constexpr char number = '8';
 constexpr char name = 'a';
 constexpr char let = 'L';
@@ -75,11 +76,11 @@ Token Token_stream::get ()
   }
 
   char ch;
-  cin >> ch;
+  while (cin.get(ch) && isspace(ch) && ch != '\n') {}
+
 
   switch (ch)
   {
-  case quit:
   case print:
   case '(':
   case ')':
@@ -90,6 +91,9 @@ Token Token_stream::get ()
   case '%':
   case '=':
     return Token{ ch };
+
+  case '\n':
+    return Token{ print };
 
   case '.':
   case '0': case '1': case '2': case '3': case '4':
@@ -113,6 +117,8 @@ Token Token_stream::get ()
 
       if (s == declkey) return Token{ let };
       if (s == const_decley) return Token{ constanta };
+      if (s == "help") return Token{ help };
+      if (s == "quit") return Token{ quit };
 
       return Token{ name, s };
     }
@@ -378,6 +384,15 @@ void calculate (Symbol_table& sym_tab, Token_stream& ts)
     Token t = ts.get();
     while (t.kind == print)
       t = ts.get();
+    if (t.kind == 'h'){
+        cout << "это калькулятор. Примеры использования: 2+3*(3-1)-3;" << endl
+               << "можно объявлять переменные: let x = 8; " << endl
+               << "можно изменять переменные: x = 5; " << endl
+               << "можно объявлять константы: const zero = 0; " << endl
+               << "можно использовать их в выражениях: 6-x*(2-zero)"<< endl
+               << "константы по умолчанию: pi, e"<< endl;
+        continue;
+    }
     if (t.kind == quit) return;
 
     ts.putback(t);

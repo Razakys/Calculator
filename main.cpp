@@ -143,13 +143,24 @@ struct Variable
   bool constanta; // это константа или нет
 
   Variable (string n, double v, bool c)
-      : name{ n }, value{ v }, constanta{c}
+      : name{ n }, value{ v }, constanta{ c }
   { }
 };
 
-vector<Variable> var_table;
+class Symbol_table {
+    vector<Variable> var_table;
 
-double get_value (string s)
+public:
+    Symbol_table () {}
+
+    double get (string s);
+    void set (string s, double d);
+    bool is_declared (string s);
+    double define_name (string var, double val, bool c);
+};
+
+
+double Symbol_table:: get (string s)
 {
   for (int i = 0; i < var_table.size(); ++i)
     if (var_table[i].name == s)
@@ -158,19 +169,14 @@ double get_value (string s)
   error("get: undefined name ", s);
 }
 
-void set_value (string s, double d)
+void Symbol_table:: set (string s, double d)
 {
-  bool c;
-  for (int i = 0; i < var_table.size(); ++i)
-    if (var_table[i].name == s)
-      c = var_table[i].constanta;
-
-  if (c)
-      error(s + " cannot be changed");
   for (int i = 0; i <= var_table.size(); ++i)
   {
     if (var_table[i].name == s)
     {
+      if (var_table[i].constanta) // не можем изменить константу
+          error(s + " cannot be changed");
       var_table[i].value = d;
       return;
     }
@@ -179,7 +185,7 @@ void set_value (string s, double d)
   error("set: undefined name ", s);
 }
 
-bool is_declared (string s)
+bool Symbol_table:: is_declared (string s)
 {
   for (int i = 0; i < var_table.size(); ++i)
     if (var_table[i].name == s) return true;
@@ -187,7 +193,7 @@ bool is_declared (string s)
   return false;
 }
 
-double define_name (string var, double val, bool c)
+double Symbol_table:: define_name (string var, double val, bool c)
 {
   if (is_declared(var))
     error(var, " declared twice");
@@ -198,18 +204,17 @@ double define_name (string var, double val, bool c)
 }
 
 
-Token_stream ts;
 
-double expression ();
+double expression (Symbol_table& sym_tab, Token_stream& ts);
 
-double primary ()
+double primary (Symbol_table& sym_tab, Token_stream& ts)
 {
   Token t = ts.get();
   switch (t.kind)
   {
   case '(':
   {
-    double d = expression();
+    double d = expression(sym_tab, ts);
     t = ts.get();
     if (t.kind != ')')
       error("'(' expected");
@@ -217,15 +222,15 @@ double primary ()
   }
 
   case '-':
-    return -primary();
+    return -primary(sym_tab, ts);
   case '+':
-    return +primary();
+    return +primary(sym_tab, ts);
 
   case number:
     return t.value;
 
   case name:
-    return get_value(t.name);
+    return sym_tab.get(t.name);
 
   default:
     error("primary expected");
@@ -233,9 +238,9 @@ double primary ()
 }
 
 
-double term ()
+double term (Symbol_table& sym_tab, Token_stream& ts)
 {
-  double left = primary();
+  double left = primary(sym_tab, ts);
 
   while (true)
   {
@@ -244,12 +249,12 @@ double term ()
     switch (t.kind)
     {
     case '*':
-      left *= primary();
+      left *= primary(sym_tab, ts);
       break;
 
     case '/':
     {
-      double d = primary();
+      double d = primary(sym_tab, ts);
       if (d == 0) error("divide by zero");
       left /= d;
       break;
@@ -263,9 +268,9 @@ double term ()
 }
 
 
-double expression ()
+double expression (Symbol_table& sym_tab, Token_stream& ts)
 {
-  double left = term();
+  double left = term(sym_tab, ts);
 
   while (true)
   {
@@ -274,11 +279,11 @@ double expression ()
     switch (t.kind)
     {
     case '+':
-      left += term();
+      left += term(sym_tab, ts);
       break;
 
     case '-':
-      left -= term();
+      left -= term(sym_tab, ts);
       break;
 
     default:
@@ -288,25 +293,25 @@ double expression ()
   }
 }
 
-double const_declaration () {
+double const_declaration (Symbol_table& sym_tab, Token_stream& ts) {
     Token t = ts.get();
     if (t.kind != name)
       error("name expected in declaration");
 
     string var = t.name;
 
-    if (is_declared(var))
+    if (sym_tab.is_declared(var))
       error(var, " declared twice");
 
     t = ts.get();
     if (t.kind != '=')
       error("'=' missing in declaration of ", var);
 
-    return define_name (var, expression(), true);
+    return sym_tab.define_name (var, expression(sym_tab, ts), true);
 }
 
 
-double declaration ()
+double declaration (Symbol_table& sym_tab, Token_stream& ts)
 {
   Token t = ts.get();
   if (t.kind != name)
@@ -314,57 +319,57 @@ double declaration ()
 
   string var = t.name;
 
-  if (is_declared(var))
+  if (sym_tab.is_declared(var))
     error(var, " declared twice");
 
   t = ts.get();
   if (t.kind != '=')
     error("'=' missing in declaration of ", var);
 
-  return define_name (var, expression(), false);
+  return sym_tab.define_name (var, expression(sym_tab, ts), false);
 }
 
-double change_value() {
+double variable(Symbol_table& sym_tab, Token_stream& ts) {  // при обнаружении переменной
     char ch;
     cin >> ch;
     if (ch == '='){
         Token t = ts.get();
-        double result = expression();
-        set_value (t.name, result);
+        double result = expression(sym_tab, ts);
+        sym_tab.set (t.name, result);
         return result;
     }
     else {
         cin.putback(ch);
-        return expression();
+        return expression(sym_tab, ts);
     }
 }
 
-double statement ()
+double statement (Symbol_table& sym_tab, Token_stream& ts)
 {
   Token t = ts.get();
   switch (t.kind)
   {
   case let:
-    return declaration();
+    return declaration(sym_tab, ts);
   case constanta:
-      return const_declaration();
+      return const_declaration(sym_tab, ts);
   case name:
       ts.putback(t);
-      return change_value();
+      return variable(sym_tab, ts);
   default:
     ts.putback(t);
-    return expression();
+    return expression(sym_tab, ts);
   }
 }
 
 
-void clean_up_mess ()
+void clean_up_mess (Token_stream& ts)
 {
   ts.ignore (print);
 }
 
 
-void calculate ()
+void calculate (Symbol_table& sym_tab, Token_stream& ts)
 {
   while (true)
   try
@@ -376,12 +381,12 @@ void calculate ()
     if (t.kind == quit) return;
 
     ts.putback(t);
-    cout << result << statement() << endl;
+    cout << result << statement(sym_tab, ts) << endl;
   }
   catch (runtime_error& e)
   {
     cerr << e.what() << endl;
-    clean_up_mess();
+    clean_up_mess(ts);
   }
 }
 
@@ -389,10 +394,12 @@ void calculate ()
 int main ()
 try
 {
-  define_name ("pi", 3.141592653589793, true); // true - константа
-  define_name ("e",  2.718281828459045, true);
+  Token_stream ts;
+  Symbol_table sym_tab;
+  sym_tab.define_name ("pi", 3.141592653589793, true); // true = константа
+  sym_tab.define_name ("e",  2.718281828459045, true);
 
-  calculate();
+  calculate(sym_tab, ts);
 }
 catch (exception& e)
 {

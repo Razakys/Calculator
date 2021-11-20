@@ -66,25 +66,27 @@
 
 */
 
-#include <Toten.h>
+#include <Token.h>
 #include <Variable.h>
 
 
-// Следующие функции работают с переменными (нужен объект класса Symbol_table) и с лексемами (нужен объект класса Token_stream)
+Symbol_table sym_tab;  // создаем глобально объект класса Symbol_table
+
+// Следующие функции работают с переменными (глобальный объект класса Symbol_table) и с лексемами (нужен объект класса Token_stream)
 
 
 // Объявление функции "Выражение"
-double expression (Symbol_table& sym_tab, Token_stream& ts);
+double expression (Token_stream& ts);
 
 // Определение функции "Первичное выражение"
-double primary (Symbol_table& sym_tab, Token_stream& ts) {
+double primary (Token_stream& ts) {
     Token t = ts.get();
     double left{}; // Нужна для степени
     switch (t.kind) {
 
     case '(':
     {
-        double d = expression(sym_tab, ts);
+        double d = expression(ts);
         t = ts.get();
         if (t.kind != ')')
           error("требуется ')' ");
@@ -94,7 +96,7 @@ double primary (Symbol_table& sym_tab, Token_stream& ts) {
 
     case '|':
     {
-        double d = expression(sym_tab, ts);
+        double d = expression(ts);
         t = ts.get();
         if (t.kind != '|')
           error("требуется '|' ");
@@ -102,11 +104,11 @@ double primary (Symbol_table& sym_tab, Token_stream& ts) {
         break;
     }
     case '-': {
-        left =  -primary(sym_tab, ts);
+        left =  -primary(ts);
         break;
     }
     case '+': {
-        left =  +primary(sym_tab, ts);
+        left =  +primary(ts);
     break;
     }
 
@@ -126,15 +128,19 @@ double primary (Symbol_table& sym_tab, Token_stream& ts) {
         error("требуется первичное выражение!");
     }
     t = ts.get();
-    if (t.kind == '^')
-        return pow(left, primary(sym_tab, ts));  // возведение в степень по правилам математики 3^2^4 = 3^16
+    if (t.kind == '^'){
+        double pr = primary(ts);
+        if (pr == 0 && left == 0)
+            error("Ноль в степени ноль не определен!");
+        return pow(left, pr);  // возведение в степень по правилам математики 3^2^4 = 3^16
+    }
     ts.putback(t);
     return left;
 }
 
 // Определение функции "Терм"
-double term (Symbol_table& sym_tab, Token_stream& ts) {
-    double left = primary(sym_tab, ts);
+double term (Token_stream& ts) {
+    double left = primary(ts);
 
     while (true) {
         Token t = ts.get();
@@ -143,19 +149,19 @@ double term (Symbol_table& sym_tab, Token_stream& ts) {
 
         case '*':
         {
-            left *= primary(sym_tab, ts);
+            left *= primary(ts);
             break;
         }
         case '/':
         {
-            double d = primary(sym_tab, ts);
+            double d = primary(ts);
             if (d == 0) error(" / : деление на нуль ");
             left /= d;
             break;
         }
         case '%':
         {
-            double d = primary(sym_tab, ts);
+            double d = primary(ts);
             if (d == 0) error(" % : деление на нуль ");
             left = fmod(left, d);
             break;
@@ -168,8 +174,8 @@ double term (Symbol_table& sym_tab, Token_stream& ts) {
 }
 
 // Определение функции "Выражение"
-double expression (Symbol_table& sym_tab, Token_stream& ts) {
-    double left = term(sym_tab, ts);
+double expression (Token_stream& ts) {
+    double left = term(ts);
 
     while (true) {
         Token t = ts.get();
@@ -177,11 +183,11 @@ double expression (Symbol_table& sym_tab, Token_stream& ts) {
         switch (t.kind) {
 
         case '+':
-            left += term(sym_tab, ts);
+            left += term(ts);
             break;
 
         case '-':
-            left -= term(sym_tab, ts);
+            left -= term(ts);
             break;
 
         default:
@@ -192,7 +198,7 @@ double expression (Symbol_table& sym_tab, Token_stream& ts) {
 }
 
 // Объявляем константу
-double const_declaration (Symbol_table& sym_tab, Token_stream& ts) {
+double const_declaration (Token_stream& ts) {
     Token t = ts.get();
     if (t.kind != name)
         error("имя ожидается в объявлении");
@@ -206,11 +212,11 @@ double const_declaration (Symbol_table& sym_tab, Token_stream& ts) {
     if (t.kind != '=')
         error("пропущен символ '=' в объявлении" + var);
 
-    return sym_tab.define_name (var, expression(sym_tab, ts), true);
+    return sym_tab.define_name (var, expression(ts), true);
 }
 
 // Объявляем переменную
-double declaration (Symbol_table& sym_tab, Token_stream& ts) {
+double declaration (Token_stream& ts) {
     Token t = ts.get();
     if (t.kind != name)
         error("имя ожидается в объявлении");
@@ -224,46 +230,46 @@ double declaration (Symbol_table& sym_tab, Token_stream& ts) {
     if (t.kind != '=')
         error("пропущен символ '=' в объявлении" + var);
 
-    return sym_tab.define_name (var, expression(sym_tab, ts), false);
+    return sym_tab.define_name (var, expression(ts), false);
 }
 
 // Функция, связанная с переменной (либо изменяет переменную, либо вызывает функцию expression)
-double variable(Symbol_table& sym_tab, Token_stream& ts) {
+double variable(Token_stream& ts) {
     char ch;
     cin >> ch;
     if (ch == '='){
         Token t = ts.get();
-        double result = expression(sym_tab, ts);
+        double result = expression(ts);
         sym_tab.set (t.name, result);
         return result;
     }
     else {
         cin.putback(ch);
-        return expression(sym_tab, ts);
+        return expression(ts);
     }
 }
 
 // "Инструкция" в грамматике
 // вызывает функции для объявления или изменения переменной, объявления константы, вычисления выражения)
-double statement (Symbol_table& sym_tab, Token_stream& ts) {
+double statement (Token_stream& ts) {
     Token t = ts.get();
     switch (t.kind)
     {
     case let:
-        return declaration(sym_tab, ts);
-    case constanta:
-        return const_declaration(sym_tab, ts);
+        return declaration(ts);
+    case constant:
+        return const_declaration(ts);
     case name:
         ts.putback(t);
-        return variable(sym_tab, ts);
+        return variable(ts);
     default:
         ts.putback(t);
-        return expression(sym_tab, ts);
+        return expression(ts);
     }
 }
 
 // "Вычисление" в грамматике (вызывает statement, вывод, выход, помощь)
-void calculate (Symbol_table& sym_tab, Token_stream& ts) {
+void calculate (Token_stream& ts) {
     while (true)
         try {
         cout << prompt;
@@ -283,7 +289,7 @@ void calculate (Symbol_table& sym_tab, Token_stream& ts) {
         if (t.kind == quit) return;
 
         ts.putback(t);
-        cout << result << statement(sym_tab, ts) << endl;
+        cout << result << statement(ts) << endl;
         }
     catch (runtime_error& e) {
         cerr << e.what() << endl;
@@ -295,14 +301,13 @@ void calculate (Symbol_table& sym_tab, Token_stream& ts) {
 int main ()
 try {
     Token_stream ts;  // создаем локально объект класса Token_stream
-    Symbol_table sym_tab;  // создаем локально объект класса Symbol_table
 
     sym_tab.define_name ("pi", 3.141592653589793, true); // true = константа
     sym_tab.define_name ("e",  2.718281828459045, true);
     sym_tab.define_name ("k",  1000.0, true);
 
     cout << "команда help выдаст полную информацию по использованию калькулятора" << endl;
-    calculate(sym_tab, ts);  // Вычисления
+    calculate(ts);  // Вычисления
 }
 catch (exception& e) {
     cerr << "Исключение: " << e.what() << endl;

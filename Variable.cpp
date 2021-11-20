@@ -13,7 +13,7 @@ double Symbol_table:: get (string s) {
 void Symbol_table:: set (string s, double d) {
     for (int i = 0; i <= var_table.size(); ++i) {
         if (var_table[i].name == s) {
-            if (var_table[i].constanta)  // не можем изменить константу
+            if (var_table[i].constant)  // не можем изменить константу
                 error(s + " не может быть изменена!");
             var_table[i].value = d;
             return;

@@ -1,4 +1,4 @@
-#include <Toten.h>
+#include <Token.h>
 
 // Сохраняет лексему
 void Token_stream::putback (Token t)
@@ -57,7 +57,7 @@ Token Token_stream::get () {
           cin.putback(ch);
 
           if (s == declkey) return Token{ let }; // Если слово " let "
-          if (s == const_decley) return Token{ constanta };  // Если слово " const "
+          if (s == const_decley) return Token{ constant };  // Если слово " const "
           if (s == "help") return Token{ help };  // Если слово " help "
           if (s == "quit") return Token{ quit };  // Если слово " quit "
 

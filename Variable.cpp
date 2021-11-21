@@ -42,3 +42,4 @@ double Symbol_table:: define_name (string var, double val, bool c) {
 
     return val;
 }
+Symbol_table sym_tab;

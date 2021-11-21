@@ -70,13 +70,11 @@
 #include <Variable.h>
 
 
-Symbol_table sym_tab;  // создаем глобально объект класса Symbol_table
-
 // Следующие функции работают с переменными (глобальный объект класса Symbol_table) и с лексемами (нужен объект класса Token_stream)
 
 
 // Объявление функции "Выражение"
-double expression (Token_stream& ts);
+double expression (Token_stream&);
 
 // Определение функции "Первичное выражение"
 double primary (Token_stream& ts) {
